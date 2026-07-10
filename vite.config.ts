@@ -31,8 +31,16 @@ function extractFolderId(urlOrId: string) {
   return null
 }
 
+function resolveRclonePath() {
+  const winPath = path.resolve('./rclone.exe')
+  const unixPath = path.resolve('./rclone')
+  if (process.platform === 'win32') return winPath
+  if (fs.existsSync(unixPath)) return unixPath
+  return fs.existsSync(winPath) ? winPath : unixPath
+}
+
 function startRcloneServer(folderId: string) {
-  const rclonePath = path.resolve('./rclone.exe')
+  const rclonePath = resolveRclonePath()
   const configPath = path.resolve('./rclone.conf')
   
   if (rcloneServerProcess) {
@@ -110,7 +118,7 @@ export default defineConfig({
             // Ensure path doesn't break out
             const safePath = targetPath.replace(/\\/g, '/').replace(/^\/+/, '')
             
-            const rclonePath = path.resolve('./rclone.exe')
+            const rclonePath = resolveRclonePath()
             const configPath = path.resolve('./rclone.conf')
 
             if (fs.existsSync(configPath) && fs.existsSync(rclonePath)) {
@@ -271,13 +279,22 @@ export default defineConfig({
             ];
 
             if (videoTonemap) {
-              outputOptions.push(
-                '-c:v h264_nvenc',
-                '-preset p4',
-                '-b:v 15M'
-              )
-              
-              if (hasLibPlacebo) {
+              if (process.platform === 'darwin') {
+                outputOptions.push(
+                  '-c:v h264_videotoolbox',
+                  '-b:v 15M'
+                )
+              } else {
+                outputOptions.push(
+                  '-c:v h264_nvenc',
+                  '-preset p4',
+                  '-b:v 15M'
+                )
+              }
+
+              // Vulkan/libplacebo hw tonemapping isn't available on macOS (no Vulkan),
+              // so always fall back to the software zscale tonemap path there.
+              if (hasLibPlacebo && process.platform !== 'darwin') {
                 // Perfect DOVI P5 Tonemapping using libplacebo
                 outputOptions.push(
                   '-init_hw_device', 'vulkan=vulkan',
