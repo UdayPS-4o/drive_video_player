@@ -1,0 +1,5 @@
+[drive]
+type = drive
+scope = drive.readonly
+service_account_file = ./sa.json
+root_folder_id = YOUR_GOOGLE_DRIVE_FOLDER_ID

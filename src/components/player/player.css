@@ -1,0 +1,820 @@
+/* =========================================================================
+   Aurora — VideoPlayer
+   A full-window cinematic player overlay. All classes prefixed `vp-`.
+   Consumes the global design tokens from styles/theme.css.
+   ========================================================================= */
+
+.vp-root {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-player);
+  background: #000;
+  color: var(--text);
+  overflow: hidden;
+  user-select: none;
+  font-family: var(--font);
+  cursor: default;
+}
+.vp-root.vp-hide-cursor {
+  cursor: none;
+}
+
+/* ---- video surface ---- */
+.vp-surface {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.vp-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+/* Native captions: lift them above the bottom scrim a touch. */
+.vp-video::cue {
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font-family: var(--font);
+  line-height: 1.35;
+}
+
+/* =========================================================================
+   Buffering spinner
+   ========================================================================= */
+.vp-spinner {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text);
+  pointer-events: none;
+  z-index: 6;
+  filter: drop-shadow(0 4px 18px rgba(0, 0, 0, 0.6));
+}
+.vp-spinner .spin,
+.vp-spinner svg {
+  opacity: 0.92;
+}
+
+/* =========================================================================
+   Center play ripple
+   ========================================================================= */
+.vp-center-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 92px;
+  height: 92px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-pill);
+  color: #fff;
+  background: rgba(10, 10, 14, 0.46);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-lg);
+  z-index: 7;
+  animation: pop-in var(--t-med) var(--ease-spring) both;
+  transition: transform var(--t-fast) var(--ease-out), background var(--t-fast);
+}
+.vp-center-play:hover {
+  transform: translate(-50%, -50%) scale(1.07);
+  background: var(--accent);
+  border-color: transparent;
+  box-shadow: var(--shadow-accent);
+}
+.vp-center-play svg {
+  margin-left: 4px;
+}
+
+/* =========================================================================
+   OSD overlays (volume / seek / speed)
+   ========================================================================= */
+.vp-osd {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 8;
+  pointer-events: none;
+}
+.vp-osd-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+  min-width: 96px;
+  padding: var(--s-4) var(--s-5);
+  border-radius: var(--r-lg);
+  background: rgba(8, 8, 12, 0.66);
+  backdrop-filter: blur(14px) saturate(1.3);
+  border: 1px solid var(--line);
+  color: #fff;
+  box-shadow: var(--shadow-pop);
+  animation: osd-fade 0.62s var(--ease-out) forwards;
+}
+.vp-osd-label {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+/* =========================================================================
+   Resume toast
+   ========================================================================= */
+.vp-resume-toast {
+  position: absolute;
+  top: 84px;
+  left: var(--s-5);
+  z-index: 9;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 10px 16px;
+  border-radius: var(--r-pill);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  box-shadow: var(--shadow-md);
+  animation: scale-in var(--t-med) var(--ease-spring) both;
+}
+.vp-resume-toast svg {
+  color: var(--accent-strong);
+}
+
+/* =========================================================================
+   Error overlay
+   ========================================================================= */
+.vp-error {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 12;
+  background: radial-gradient(circle at 50% 40%, rgba(20, 0, 6, 0.6), rgba(0, 0, 0, 0.85));
+  animation: fade-in var(--t-med) var(--ease-out) both;
+}
+.vp-error-card {
+  width: min(440px, 86vw);
+  padding: var(--s-6) var(--s-5);
+  border-radius: var(--r-xl);
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+}
+.vp-error-icon {
+  color: var(--warning);
+  margin-bottom: var(--s-3);
+}
+.vp-error-card h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: var(--s-2);
+}
+.vp-error-card p {
+  font-size: 13.5px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-bottom: var(--s-5);
+}
+.vp-error-actions {
+  display: flex;
+  gap: var(--s-3);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* =========================================================================
+   Top gradient bar
+   ========================================================================= */
+.vp-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-4) var(--s-5) var(--s-7);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0.4) 45%, transparent 100%);
+  transition: opacity var(--t-med) var(--ease-out), transform var(--t-med) var(--ease-out);
+}
+.vp-title-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.vp-title {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.7);
+}
+.vp-subtitle {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+/* =========================================================================
+   Shared icon button
+   ========================================================================= */
+.vp-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--r-sm);
+  color: rgba(255, 255, 255, 0.92);
+  background: transparent;
+  border: none;
+  transition: background var(--t-fast) var(--ease-out), color var(--t-fast),
+    transform var(--t-fast) var(--ease-out), opacity var(--t-fast);
+}
+.vp-iconbtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  transform: scale(1.08);
+}
+.vp-iconbtn:active {
+  transform: scale(0.94);
+}
+.vp-iconbtn:disabled {
+  opacity: 0.32;
+  pointer-events: none;
+}
+.vp-iconbtn.vp-active {
+  color: var(--accent-strong);
+}
+.vp-iconbtn.vp-active::after {
+  content: '';
+  position: absolute;
+  bottom: 5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.vp-back svg {
+  transition: transform var(--t-fast) var(--ease-out);
+}
+.vp-back:hover svg {
+  transform: translateX(-2px);
+}
+.vp-gear-spin {
+  animation: spin 6s linear infinite;
+}
+
+/* =========================================================================
+   Stats for nerds
+   ========================================================================= */
+.vp-stats {
+  position: absolute;
+  top: 82px;
+  right: var(--s-5);
+  z-index: 11;
+  width: 246px;
+  padding: var(--s-3) var(--s-4) var(--s-4);
+  border-radius: var(--r-md);
+  font-size: 12px;
+  box-shadow: var(--shadow-pop);
+  animation: scale-in var(--t-fast) var(--ease-out) both;
+}
+.vp-stats-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-weight: 700;
+  font-size: 12.5px;
+  color: var(--text);
+  padding-bottom: var(--s-2);
+  margin-bottom: var(--s-2);
+  border-bottom: 1px solid var(--line);
+}
+.vp-stats-head svg {
+  color: var(--accent-strong);
+}
+.vp-stats-close {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-xs);
+  color: var(--text-muted);
+}
+.vp-stats-close:hover {
+  background: var(--bg-3);
+  color: var(--text);
+}
+.vp-stat-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: 3px 0;
+}
+.vp-stat-k {
+  color: var(--text-muted);
+}
+.vp-stat-v {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* =========================================================================
+   Up-next card
+   ========================================================================= */
+.vp-upnext {
+  position: absolute;
+  right: var(--s-5);
+  bottom: 132px;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  width: 332px;
+  padding: var(--s-3);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-pop);
+  animation: rise-in var(--t-med) var(--ease-out) both;
+}
+.vp-upnext-poster {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--r-sm);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 19px;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.02em;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.vp-upnext-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.vp-upnext-eyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-strong);
+}
+.vp-upnext-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+.vp-upnext-actions {
+  margin-top: 2px;
+}
+.vp-upnext-ring {
+  position: relative;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+}
+.vp-upnext-ring svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+.vp-ring-track {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 3;
+}
+.vp-ring-fill {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 106.8;
+  transition: stroke-dashoffset 1s linear;
+}
+.vp-ring-num {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* =========================================================================
+   Bottom controls scrim
+   ========================================================================= */
+.vp-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  padding: var(--s-7) var(--s-5) var(--s-3);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.82) 0%, rgba(0, 0, 0, 0.45) 48%, transparent 100%);
+  transition: opacity var(--t-med) var(--ease-out), transform var(--t-med) var(--ease-out);
+}
+
+/* hidden chrome state */
+.vp-chrome-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+.vp-top.vp-chrome-hidden {
+  transform: translateY(-12px);
+}
+.vp-bottom.vp-chrome-hidden {
+  transform: translateY(12px);
+}
+
+/* =========================================================================
+   Seek bar
+   ========================================================================= */
+.vp-seek-row {
+  padding: 0 4px var(--s-2);
+}
+.vp-seek {
+  position: relative;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+}
+.vp-seek-track,
+.vp-seek-buffered,
+.vp-seek-fill {
+  position: absolute;
+  left: 0;
+  height: 4px;
+  border-radius: var(--r-pill);
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  transition: height var(--t-fast) var(--ease-out);
+}
+.vp-seek-track {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.22);
+}
+.vp-seek-buffered {
+  background: rgba(255, 255, 255, 0.38);
+}
+.vp-seek-fill {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+.vp-seek-thumb {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow-sm);
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform var(--t-fast) var(--ease-spring);
+  pointer-events: none;
+}
+.vp-seek:hover .vp-seek-track,
+.vp-seek:hover .vp-seek-buffered,
+.vp-seek:hover .vp-seek-fill,
+.vp-seek-active .vp-seek-track,
+.vp-seek-active .vp-seek-buffered,
+.vp-seek-active .vp-seek-fill {
+  height: 6px;
+}
+.vp-seek:hover .vp-seek-thumb,
+.vp-seek-active .vp-seek-thumb,
+.vp-seek:focus-visible .vp-seek-thumb {
+  transform: translate(-50%, -50%) scale(1);
+}
+.vp-seek-tooltip {
+  position: absolute;
+  bottom: 22px;
+  transform: translateX(-50%);
+  padding: 4px 9px;
+  border-radius: var(--r-xs);
+  background: rgba(8, 8, 12, 0.92);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: var(--shadow-md);
+}
+
+/* =========================================================================
+   Controls row
+   ========================================================================= */
+.vp-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+.vp-controls-left,
+.vp-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.vp-controls-right {
+  gap: 4px;
+}
+
+/* time display */
+.vp-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px;
+  margin-left: var(--s-2);
+  border-radius: var(--r-xs);
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  background: transparent;
+  transition: background var(--t-fast);
+}
+.vp-time:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.vp-time-sep {
+  color: var(--text-muted);
+}
+
+/* =========================================================================
+   Volume cluster
+   ========================================================================= */
+.vp-vol {
+  display: flex;
+  align-items: center;
+}
+.vp-vol-bar {
+  position: relative;
+  width: 0;
+  height: 28px;
+  margin-left: 0;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  cursor: pointer;
+  touch-action: none;
+  overflow: visible;
+  transition: width var(--t-med) var(--ease-out), opacity var(--t-fast),
+    margin-left var(--t-med) var(--ease-out);
+}
+.vp-vol-open .vp-vol-bar {
+  width: 80px;
+  margin-left: 6px;
+  margin-right: 6px;
+  opacity: 1;
+}
+.vp-vol-bar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.25);
+}
+.vp-vol-fill {
+  position: absolute;
+  left: 0;
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: #fff;
+  pointer-events: none;
+}
+.vp-vol-thumb {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* =========================================================================
+   Settings menu (popover)
+   ========================================================================= */
+.vp-menu-anchor {
+  position: relative;
+}
+.vp-menu {
+  position: absolute;
+  bottom: 52px;
+  right: 0;
+  z-index: 20;
+  width: 264px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-pop);
+  animation: scale-in var(--t-fast) var(--ease-out) both;
+  transform-origin: bottom right;
+}
+.vp-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.vp-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 9px 11px;
+  border-radius: var(--r-xs);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+.vp-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.vp-menu-ico {
+  display: grid;
+  place-items: center;
+  color: var(--text-dim);
+  width: 18px;
+}
+.vp-menu-key {
+  flex: 1;
+  min-width: 0;
+}
+.vp-menu-val {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  max-width: 96px;
+}
+.vp-menu-val svg {
+  color: var(--accent-strong);
+}
+.vp-menu-back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 11px 9px 7px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  border-radius: var(--r-xs);
+}
+.vp-menu-back:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.vp-menu-choice {
+  padding-left: 9px;
+}
+.vp-menu-check {
+  width: 18px;
+  display: grid;
+  place-items: center;
+  color: var(--accent-strong);
+}
+.vp-menu-note {
+  padding: 12px 11px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* =========================================================================
+   Next Episode Button
+   ========================================================================= */
+.vp-next-ep-btn {
+  position: absolute;
+  right: var(--s-5);
+  bottom: 132px;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 10px 14px 10px 18px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.95);
+  color: #000;
+  border: none;
+  cursor: pointer;
+  box-shadow: var(--shadow-lg);
+  animation: rise-in var(--t-med) var(--ease-out) both;
+  transition: transform var(--t-fast) var(--ease-spring), background var(--t-fast);
+}
+.vp-next-ep-btn:hover {
+  transform: scale(1.04);
+  background: #fff;
+}
+.vp-next-ep-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+.vp-next-ep-label {
+  font-size: 13.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #000;
+}
+.vp-next-ep-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.6);
+  max-width: 160px;
+}
+.vp-next-ep-icon-wrap {
+  display: grid;
+  place-items: center;
+  margin-left: 2px;
+}
+.vp-next-ep-ring {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  margin-left: 2px;
+}
+.vp-next-ep-ring svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+.vp-next-ep-ring .vp-ring-track {
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.12);
+  stroke-width: 3;
+}
+.vp-next-ep-ring .vp-ring-fill {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 94.24;
+  transition: stroke-dashoffset 1s linear;
+}
+.vp-next-ep-num {
+  font-size: 12.5px;
+  font-weight: 800;
+  z-index: 1;
+}
+
+/* =========================================================================
+   Reduced motion
+   ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  .vp-center-play,
+  .vp-osd-inner,
+  .vp-resume-toast,
+  .vp-upnext,
+  .vp-menu,
+  .vp-stats,
+  .vp-gear-spin {
+    animation-duration: 0.001ms !important;
+  }
+}
+
+/* =========================================================================
+   Responsive trims for narrow windows
+   ========================================================================= */
+@media (max-width: 560px) {
+  .vp-upnext {
+    width: calc(100vw - 2 * var(--s-4));
+    right: var(--s-4);
+  }
+  .vp-controls-left .vp-time {
+    margin-left: 0;
+  }
+  .vp-vol-open .vp-vol-bar {
+    width: 56px;
+  }
+}
