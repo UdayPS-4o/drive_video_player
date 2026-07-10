@@ -31,7 +31,16 @@ Before running the application, make sure you have:
 
 ## Getting Started & Configuration
 
-### 1. Clone & Install Dependencies
+### macOS quick start
+Run the setup script — it installs dependencies, downloads the correct rclone
+binary for your Mac (Intel or Apple Silicon), clears its Gatekeeper quarantine,
+and scaffolds the credential files:
+```bash
+./install-mac.sh
+```
+Then edit `sa.json` and `rclone.conf` with your credentials and run `npm run electron:dev`.
+
+### 1. Clone & Install Dependencies (manual)
 ```bash
 npm install
 ```
