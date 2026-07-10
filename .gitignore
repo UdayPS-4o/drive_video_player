@@ -38,3 +38,5 @@ tvshow_cache.json
 # Media Output / Test Files
 *.mka
 *.mkv
+.env
+.env.*
